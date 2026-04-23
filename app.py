@@ -11,7 +11,7 @@ st.markdown("""
     .stApp { text-align: right; direction: rtl; }
     [data-testid="stChatMessageContent"] { text-align: right; direction: rtl; }
 </style>
-""", unsafe_allow_context=True)
+""", unsafe_allow_html=True)
 
 st.title("🤖 مساعد مصطفى الذكي")
 
@@ -39,10 +39,10 @@ if prompt := st.chat_input("اسألني أي شيء أو اطلب صورة...")
         if any(word in prompt for word in ["ارسم", "صورة", "تخيل", "draw"]):
             try:
                 img_url = f"https://pollinations.ai/p/{requests.utils.quote(prompt)}?width=1024&height=1024&seed=42"
-                st.image(img_url, caption="تم توليدها بواسطة مساعد مصطفى")
-                st.session_state.messages.append({"role": "assistant", "content": "تفضل هذه الصورة:", "image": img_url})
+                st.image(img_url, caption="تفضل هذه الصورة")
+                st.session_state.messages.append({"role": "assistant", "content": "تم توليد الصورة", "image": img_url})
             except:
-                st.error("عذراً، فشل توليد الصورة.")
+                st.error("فشل في توليد الصورة.")
         else:
             try:
                 response = client.chat.completions.create(
@@ -53,4 +53,4 @@ if prompt := st.chat_input("اسألني أي شيء أو اطلب صورة...")
                 st.markdown(full_res)
                 st.session_state.messages.append({"role": "assistant", "content": full_res})
             except Exception as e:
-                st.error(f"خطأ في الاتصال: {e}")
+                st.error(f"خطأ: {e}")
