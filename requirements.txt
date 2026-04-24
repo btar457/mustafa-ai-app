@@ -1,5 +1,5 @@
 streamlit
 groq
 requests
-pandas
 Pillow
+pandas
