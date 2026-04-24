@@ -1,6 +1,5 @@
 streamlit
 groq
 requests
-tensorflow
-Pillow
 pandas
+Pillow
