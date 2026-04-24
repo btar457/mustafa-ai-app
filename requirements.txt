@@ -1,6 +1,6 @@
 streamlit
 groq
 requests
-pandas
-openpyxl
+tensorflow
 Pillow
+pandas
