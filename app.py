@@ -1,74 +1,66 @@
-Import streamlit as st
-import tensorflow as tf
-from tensorflow import keras
-from PIL import Image
-import numpy as np
-import logging
-import speech_recognition as sr
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+import streamlit as st
+from groq import Groq
+import requests
+import time
+import re
 
-# تعريف سجل الأحداث
-logging.basicConfig(level=logging.INFO)
+# 1. إعداد الصفحة (نظام مركزي بسيط جداً لضمان الوضوح)
+st.set_page_config(page_title="Mustafa AI", layout="centered")
 
-# تعريف نموذج التعلم العميق
-def load_model():
-    model = keras.Sequential([
-        keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)),
-        keras.layers.MaxPooling2D((2, 2)),
-        keras.layers.Flatten(),
-        keras.layers.Dense(128, activation='relu'),
-        keras.layers.Dropout(0.2),
-        keras.layers.Dense(10, activation='softmax')
-    ])
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-    return model
+# 2. حذف كل أكواد CSS المخصصة التي تسبب الخطوط العشوائية
+# نعتمد فقط على التنسيق التلقائي لـ Streamlit الذي يتوافق مع S23
 
-# تعريف دالة التحليل
-def analyze_image(image):
-    model = load_model()
-    image = np.array(image)
-    image = image.reshape((1, 224, 224, 3))
-    prediction = model.predict(image)
-    return prediction
+st.title("🤖 مساعد مصطفى الذكي")
+st.write("---") # خط فاصل بسيط لفصل العنوان عن المحادثة
 
-# تعريف دالة التعرف على الكلام
-def recognize_speech():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        audio = r.listen(source)
-        try:
-            text = r.recognize_google(audio, language="ar-EG")
-            return text
-        except sr.UnknownValueError:
-            return " لم يتم التعرف على الكلام "
+# 3. إعداد الذاكرة والـ API
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# تعريف دالة تحليل النصوص
-def analyze_text(text):
-    model = AutoModelForSequenceClassification.from_pretrained("bert-base-arabic")
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-arabic")
-    inputs = tokenizer(text, return_tensors="pt")
-    outputs = model(inputs["input_ids"], attention_mask=inputs["attention_mask"])
-    return outputs
+client = Groq(api_key="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")
 
-# تعريف الواجهة المستخدم
-st.title("Mustafa AI App")
-st.write(" هذا تطبيق مصمم لتحليل الصور و النصوص و الكلام ")
+# 4. عرض المحادثة (استخدام المكونات الأصلية فقط)
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
+        if "image_url" in message:
+            st.image(message["image_url"], use_container_width=True)
 
-# تعريف نافذة التحميل
-upload_file = st.file_uploader("تحميل الصورة", type=["jpg", "jpeg", "png"])
+# 5. منطقة الإدخال والمعالجة
+if prompt := st.chat_input("تحدث معي، أو اطلب تخيل صورة..."):
+    # إضافة رسالة المستخدم للذاكرة
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.write(prompt)
 
-if upload_file is not None:
-    image = Image.open(upload_file)
-    prediction = analyze_image(image)
-    st.write("النتيجة : ", prediction)
+    with st.chat_message("assistant"):
+        # ميزة الصور (توليد خارجي)
+        if any(w in prompt for w in ["ارسم", "صورة", "تخيل"]):
+            with st.spinner("🎨 جاري التوليد..."):
+                clean_desc = re.sub(r'(ارسم|صورة|تخيل)', '', prompt).strip()
+                img_url = f"https://pollinations.ai/p/{requests.utils.quote(clean_desc)}?width=1024&height=1024&seed={int(time.time())}"
+                st.image(img_url)
+                st.session_state.messages.append({"role": "assistant", "content": f"تم توليد: {clean_desc}", "image_url": img_url})
+        
+        # الرد النصي الذكي
+        else:
+            with st.spinner("🔍 تفكير..."):
+                try:
+                    # تصفية الذاكرة لمنع خطأ 400
+                    clean_history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages if "image_url" not in m]
+                    
+                    response = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=[{"role": "system", "content": "أنت مساعد مصطفى، مهندس خبير. أجب بالعربي بوضوح."}] + clean_history
+                    )
+                    res_text = response.choices[0].message.content
+                    st.write(res_text)
+                    st.session_state.messages.append({"role": "assistant", "content": res_text})
+                except Exception as e:
+                    st.error("عذراً، حدث خطأ في الاتصال.")
 
-# تعريف نافذة التعرف على الكلام
-if st.button("التعرف على الكلام"):
-    text = recognize_speech()
-    st.write("النتيجة : ", text)
-
-# تعريف نافذة تحليل النصوص
-text_input = st.text_input("أدخل النص")
-if st.button("تحليل النص"):
-    outputs = analyze_text(text_input)
-    st.write("النتيجة : ", outputs)
+# 6. شريط جانبي نظيف
+with st.sidebar:
+    st.header("⚙️ الإعدادات")
+    if st.button("🗑️ مسح المحادثة"):
+        st.session_state.messages =
