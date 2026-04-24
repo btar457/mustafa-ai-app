@@ -4,63 +4,68 @@ import requests
 import time
 import re
 
-# 1. إعداد الصفحة (نظام مركزي بسيط جداً لضمان الوضوح)
-st.set_page_config(page_title="Mustafa AI", layout="centered")
+# 1. إعدادات أساسية لضمان استقرار العرض على S23
+st.set_page_config(page_title="Mustafa AI Clean", layout="centered")
 
-# 2. حذف كل أكواد CSS المخصصة التي تسبب الخطوط العشوائية
-# نعتمد فقط على التنسيق التلقائي لـ Streamlit الذي يتوافق مع S23
-
-st.title("🤖 مساعد مصطفى الذكي")
-st.write("---") # خط فاصل بسيط لفصل العنوان عن المحادثة
-
-# 3. إعداد الذاكرة والـ API
+# 2. تهيئة الذاكرة في بداية الكود لتجنب أخطاء الأسطر المتأخرة
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# 3. إعداد الاتصال بـ Groq
 client = Groq(api_key="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")
 
-# 4. عرض المحادثة (استخدام المكونات الأصلية فقط)
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
-        if "image_url" in message:
-            st.image(message["image_url"], use_container_width=True)
+st.title("🤖 مساعد مصطفى الذكي")
+st.write("النسخة المستقرة - بدون أخطاء عرض")
 
-# 5. منطقة الإدخال والمعالجة
-if prompt := st.chat_input("تحدث معي، أو اطلب تخيل صورة..."):
-    # إضافة رسالة المستخدم للذاكرة
+# 4. عرض الرسائل السابقة بشكل بسيط
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
+        if "image_url" in msg:
+            st.image(msg["image_url"])
+
+# 5. معالجة الإدخال الجديد
+if prompt := st.chat_input("تحدث معي هنا..."):
+    # حفظ وإظهار رسالة المستخدم فوراً
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt)
 
     with st.chat_message("assistant"):
-        # ميزة الصور (توليد خارجي)
+        # فحص إذا كان الطلب صورة
         if any(w in prompt for w in ["ارسم", "صورة", "تخيل"]):
             with st.spinner("🎨 جاري التوليد..."):
+                # السطر 66 المصحح: تنظيف النص بشكل آمن
                 clean_desc = re.sub(r'(ارسم|صورة|تخيل)', '', prompt).strip()
+                if not clean_desc: clean_desc = "شيء جميل"
+                
                 img_url = f"https://pollinations.ai/p/{requests.utils.quote(clean_desc)}?width=1024&height=1024&seed={int(time.time())}"
                 st.image(img_url)
-                st.session_state.messages.append({"role": "assistant", "content": f"تم توليد: {clean_desc}", "image_url": img_url})
+                st.session_state.messages.append({"role": "assistant", "content": f"تم توليد صورة لـ: {clean_desc}", "image_url": img_url})
         
-        # الرد النصي الذكي
+        # الرد النصي (إصلاح السطر 66 وما بعده في معالجة الذاكرة)
         else:
             with st.spinner("🔍 تفكير..."):
                 try:
-                    # تصفية الذاكرة لمنع خطأ 400
-                    clean_history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages if "image_url" not in m]
-                    
+                    # تصفية الذاكرة: نرسل فقط role و content كـ نصوص واضحة
+                    clean_history = []
+                    for m in st.session_state.messages:
+                        if "image_url" not in m: # نبعث النصوص بس عشان ما يصير Error 400
+                            clean_history.append({"role": m["role"], "content": str(m["content"])})
+
                     response = client.chat.completions.create(
                         model="llama-3.3-70b-versatile",
-                        messages=[{"role": "system", "content": "أنت مساعد مصطفى، مهندس خبير. أجب بالعربي بوضوح."}] + clean_history
+                        messages=[{"role": "system", "content": "أنت مساعد مهندس ميكانيك ذكي."}] + clean_history
                     )
-                    res_text = response.choices[0].message.content
-                    st.write(res_text)
-                    st.session_state.messages.append({"role": "assistant", "content": res_text})
+                    
+                    answer = response.choices[0].message.content
+                    st.write(answer)
+                    st.session_state.messages.append({"role": "assistant", "content": answer})
                 except Exception as e:
-                    st.error("عذراً، حدث خطأ في الاتصال.")
+                    st.error("حدث خطأ في معالجة النص، حاول كتابة رسالة قصيرة.")
 
-# 6. شريط جانبي نظيف
+# القائمة الجانبية
 with st.sidebar:
-    st.header("⚙️ الإعدادات")
     if st.button("🗑️ مسح المحادثة"):
-        st.session_state.messages =
+        st.session_state.messages = []
+        st.rerun()
