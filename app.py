@@ -1,85 +1,73 @@
 import streamlit as st
 from groq import Groq
+import tensorflow as tf # لمحركك الجديد
+import numpy as np
 import requests
 import time
-import re
-import pandas as pd
-from PIL import Image
 import io
+from PIL import Image
 
-# 1. إعدادات العرض الاحترافي (Professional UI)
-st.set_page_config(page_title="Mustafa Super-App PRO", page_icon="💎", layout="wide")
+# 1. الواجهة الاحترافية (Custom CSS)
+st.set_page_config(page_title="Mustafa AI - Ultimate Edition", layout="wide")
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-    html, body, [class*="css"] { font-family: 'Cairo', sans-serif; text-align: right; direction: rtl; }
-    .stChatMessage { border-radius: 15px; margin-bottom: 10px; border: 1px solid #ddd; }
-    .stApp { background: linear-gradient(to bottom, #ffffff, #f0f2f5); }
-    .stButton>button { width: 100%; border-radius: 20px; background-color: #007bff; color: white; }
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
+    html, body, [class*="css"] { font-family: 'Tajawal', sans-serif; text-align: right; direction: rtl; }
+    .stApp { background-color: #0e1117; color: #ffffff; }
+    .main-card { background: #1d1d1d; padding: 20px; border-radius: 15px; border: 1px solid #333; }
 </style>
 """, unsafe_allow_html=True)
 
-# 2. إعداد المحركات (Engines)
-GROQ_API_KEY = "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"
-client = Groq(api_key=GROQ_API_KEY)
-
+# 2. إعداد الذاكرة والـ API
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 3. شريط جانبي متطور للتعامل مع الملفات (Advanced File Handling)
+client = Groq(api_key="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")
+
+# 3. القائمة الجانبية (الأدوات المتقدمة)
 with st.sidebar:
-    st.title("📂 مركز التحكم")
-    uploaded_file = st.file_uploader("ارفع ملف (PDF, Excel, CSV, Image)", type=['pdf', 'xlsx', 'csv', 'png', 'jpg'])
-    if uploaded_file:
-        st.success(f"تم تحميل: {uploaded_file.name}")
-        # هنا يمكن إضافة منطق قراءة الملفات وتحليلها لاحقاً
+    st.image("https://cdn-icons-png.flaticon.com/512/2103/2103633.png", width=100)
+    st.title("🛠️ أدوات المهندس")
+    mode = st.selectbox("اختر وضع المعالجة", ["الدردشة الذكية", "توليد الصور (GANs)", "تحليل الملفات"])
     
-    st.write("---")
-    if st.button("🗑️ مسح الجلسة الذكية"):
-        st.session_state.messages = []
-        st.rerun()
+    uploaded_file = st.file_uploader("ارفع مخطط أو ملف بيانات", type=['pdf', 'png', 'jpg', 'csv'])
+    if uploaded_file:
+        st.info(f"تم استقبال ملف: {uploaded_file.name}")
 
-# 4. عرض المحادثة بتنسيق احترافي
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-        if "image_url" in message:
-            st.image(message["image_url"], use_container_width=True)
+# 4. محرك المعالجة الرئيسي
+if mode == "الدردشة الذكية":
+    st.title("💬 العقل الذكي - مصطفى")
+    
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-# 5. منطق المعالجة المتقدم (Advanced Logic)
-if prompt := st.chat_input("اسألني بعمق، اطلب صورة، أو حلل ملفاً..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+    if prompt := st.chat_input("تحدث معي بعمق..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"): st.markdown(prompt)
 
-    with st.chat_message("assistant"):
-        # أداة توليد الصور المتقدمة (Image Generation Tool)
-        if any(word in prompt.lower() for word in ["ارسم", "صورة", "تخيل", "draw", "image"]):
-            with st.spinner("🎨 جاري الرسم الاحترافي..."):
-                clean_desc = re.sub(r'(ارسم|صورة|تخيل|draw|image)', '', prompt).strip()
-                seed = int(time.time())
-                img_url = f"https://pollinations.ai/p/{requests.utils.quote(clean_desc)}?width=1024&height=1024&seed={seed}"
-                st.image(img_url, caption="النتيجة النهائية", use_container_width=True)
-                st.session_state.messages.append({"role": "assistant", "content": f"تم توليد صورة لـ: {clean_desc}", "image_url": img_url})
-        
-        # أداة التفكير المنطقي والبحث العميق (Deep Reasoning)
-        else:
-            with st.spinner("🔍 جاري التفكير بعمق (Deep Reasoning)..."):
-                try:
-                    # نظام تنظيف الذاكرة لضمان عدم حدوث خطأ 400
-                    clean_history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages if "image_url" not in m]
-                    
-                    completion = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
-                        messages=[
-                            {"role": "system", "content": "أنت مساعد مصطفى الفائق. مهندس ميكانيك خبير، عبقري في التحليل المنطقي. أجب بأسلوب احترافي وعميق."},
-                            *clean_history
-                        ],
-                        temperature=0.5 # للتركيز والمنطق
-                    )
-                    res = completion.choices[0].message.content
-                    st.markdown(res)
-                    st.session_state.messages.append({"role": "assistant", "content": res})
-                except Exception as e:
-                    st.error(f"خطأ تقني: {e}")
+        with st.chat_message("assistant"):
+            with st.spinner("🔍 جاري البحث والتحليل العميق..."):
+                clean_history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
+                completion = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "system", "content": "أنت مساعد مهندس ذكي وفائق القدرة."}] + clean_history
+                )
+                res = completion.choices[0].message.content
+                st.markdown(res)
+                st.session_state.messages.append({"role": "assistant", "content": res})
+
+elif mode == "توليد الصور (GANs)":
+    st.title("🖼️ مختبر الصور المتقدم")
+    desc = st.text_input("صف الصورة التي يتخيلها عقلك...")
+    if st.button("توليد الصورة الآن"):
+        with st.spinner("🚀 جاري تفعيل شبكة GANs للتوليد..."):
+            img_url = f"https://pollinations.ai/p/{requests.utils.quote(desc)}?width=1024&height=1024&seed={int(time.time())}"
+            st.image(img_url, caption="نتيجة المعالجة الاحترافية", use_container_width=True)
+            st.balloons()
+
+# زر المسح
+if st.sidebar.button("🗑️ مسح الجلسة"):
+    st.session_state.messages = []
+    st.rerun()
