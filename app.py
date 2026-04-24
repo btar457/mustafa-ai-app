@@ -3,92 +3,83 @@ from groq import Groq
 import requests
 import time
 import re
+import pandas as pd
+from PIL import Image
+import io
 
-# 1. إعدادات الصفحة والواجهة
-st.set_page_config(page_title="Mustafa Brain V4", page_icon="⚡", layout="wide")
+# 1. إعدادات العرض الاحترافي (Professional UI)
+st.set_page_config(page_title="Mustafa Super-App PRO", page_icon="💎", layout="wide")
 
 st.markdown("""
 <style>
-    .stApp { text-align: right; direction: rtl; }
-    [data-testid="stChatMessageContent"] { text-align: right; direction: rtl; }
-    div.stSpinner > div { direction: ltr; }
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+    html, body, [class*="css"] { font-family: 'Cairo', sans-serif; text-align: right; direction: rtl; }
+    .stChatMessage { border-radius: 15px; margin-bottom: 10px; border: 1px solid #ddd; }
+    .stApp { background: linear-gradient(to bottom, #ffffff, #f0f2f5); }
+    .stButton>button { width: 100%; border-radius: 20px; background-color: #007bff; color: white; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚡ العقل الفائق: النسخة المستقرة")
-
-# 2. تعريف المفاتيح والمكتبات
+# 2. إعداد المحركات (Engines)
 GROQ_API_KEY = "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"
 client = Groq(api_key=GROQ_API_KEY)
 
-# 3. إدارة الذاكرة بشكل صارم
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# عرض المحادثة (مع حماية ضد البيانات التالفة)
+# 3. شريط جانبي متطور للتعامل مع الملفات (Advanced File Handling)
+with st.sidebar:
+    st.title("📂 مركز التحكم")
+    uploaded_file = st.file_uploader("ارفع ملف (PDF, Excel, CSV, Image)", type=['pdf', 'xlsx', 'csv', 'png', 'jpg'])
+    if uploaded_file:
+        st.success(f"تم تحميل: {uploaded_file.name}")
+        # هنا يمكن إضافة منطق قراءة الملفات وتحليلها لاحقاً
+    
+    st.write("---")
+    if st.button("🗑️ مسح الجلسة الذكية"):
+        st.session_state.messages = []
+        st.rerun()
+
+# 4. عرض المحادثة بتنسيق احترافي
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
         if "image_url" in message:
             st.image(message["image_url"], use_container_width=True)
 
-# 4. محرك المعالجة الرئيسي
-if prompt := st.chat_input("تحدث معي أو اطلب صورة..."):
-    # إضافة طلب المستخدم للذاكرة
+# 5. منطق المعالجة المتقدم (Advanced Logic)
+if prompt := st.chat_input("اسألني بعمق، اطلب صورة، أو حلل ملفاً..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        # أولاً: التحقق إذا كان الطلب "صورة"
-        image_keywords = ["ارسم", "صورة", "تخيل", "draw", "image", "imagine"]
-        if any(word in prompt.lower() for word in image_keywords):
-            with st.spinner("🎨 جاري ابتكار الصورة..."):
-                try:
-                    # استخراج الوصف فقط
-                    clean_desc = re.sub(r'|'.join(image_keywords), '', prompt, flags=re.IGNORECASE).strip()
-                    seed = int(time.time())
-                    img_url = f"https://pollinations.ai/p/{requests.utils.quote(clean_desc)}?width=1024&height=1024&seed={seed}&nologo=true"
-                    
-                    st.image(img_url, caption=f"خيال مصطفى: {clean_desc}", use_container_width=True)
-                    # تخزين الصورة في الذاكرة للعرض فقط
-                    st.session_state.messages.append({
-                        "role": "assistant", 
-                        "content": f"لقد رسمت لك: {clean_desc}", 
-                        "image_url": img_url
-                    })
-                except Exception as e:
-                    st.error("فشل محرك الصور، حاول مرة أخرى.")
+        # أداة توليد الصور المتقدمة (Image Generation Tool)
+        if any(word in prompt.lower() for word in ["ارسم", "صورة", "تخيل", "draw", "image"]):
+            with st.spinner("🎨 جاري الرسم الاحترافي..."):
+                clean_desc = re.sub(r'(ارسم|صورة|تخيل|draw|image)', '', prompt).strip()
+                seed = int(time.time())
+                img_url = f"https://pollinations.ai/p/{requests.utils.quote(clean_desc)}?width=1024&height=1024&seed={seed}"
+                st.image(img_url, caption="النتيجة النهائية", use_container_width=True)
+                st.session_state.messages.append({"role": "assistant", "content": f"تم توليد صورة لـ: {clean_desc}", "image_url": img_url})
         
-        # ثانياً: معالجة النصوص (مع نظام تنظيف الذاكرة الصارم)
+        # أداة التفكير المنطقي والبحث العميق (Deep Reasoning)
         else:
-            with st.spinner("🔍 تفكير منطقي..."):
+            with st.spinner("🔍 جاري التفكير بعمق (Deep Reasoning)..."):
                 try:
-                    # القائمة النظيفة: نرسل فقط النصوص (role و content) لـ Groq
-                    # هذا يمنع خطأ 400 نهائياً لأنه يحذف أي مفاتيح إضافية مثل image_url
-                    api_messages = []
-                    api_messages.append({"role": "system", "content": "أنت مساعد مهندس مصطفى الذكي. تتذكر السياق وتجيب بالعربي."})
+                    # نظام تنظيف الذاكرة لضمان عدم حدوث خطأ 400
+                    clean_history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages if "image_url" not in m]
                     
-                    for m in st.session_state.messages:
-                        api_messages.append({"role": m["role"], "content": str(m["content"])})
-
                     completion = client.chat.completions.create(
                         model="llama-3.3-70b-versatile",
-                        messages=api_messages,
-                        temperature=0.7
+                        messages=[
+                            {"role": "system", "content": "أنت مساعد مصطفى الفائق. مهندس ميكانيك خبير، عبقري في التحليل المنطقي. أجب بأسلوب احترافي وعميق."},
+                            *clean_history
+                        ],
+                        temperature=0.5 # للتركيز والمنطق
                     )
-                    
-                    response = completion.choices[0].message.content
-                    st.markdown(response)
-                    st.session_state.messages.append({"role": "assistant", "content": response})
+                    res = completion.choices[0].message.content
+                    st.markdown(res)
+                    st.session_state.messages.append({"role": "assistant", "content": res})
                 except Exception as e:
-                    st.error(f"حدث خطأ في استجابة المحرك: {e}")
-
-# 5. شريط التحكم الجانبي
-with st.sidebar:
-    st.header("إدارة التطبيق")
-    if st.button("🗑️ مسح الذاكرة (حل المشاكل)"):
-        st.session_state.messages = []
-        st.rerun()
-    st.write("---")
-    st.write("موديل التفكير: Llama 3.3 70B")
+                    st.error(f"خطأ تقني: {e}")
