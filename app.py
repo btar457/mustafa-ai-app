@@ -1,221 +1,122 @@
 import streamlit as st
 from groq import Groq
 import requests
-import time
-import re
-import io
-import json
 import sqlite3
+import json
 from datetime import datetime
-from PIL import Image
+import re
 
-st.set_page_config(page_title="Mustafa AI", page_icon="🤖", layout="wide")
+# إعدادات الصفحة المتقدمة
+st.set_page_config(page_title="Mustafa AI Pro", page_icon="🚀", layout="wide")
 
-# ====================== CSS قوي جداً لإزالة الخط الأسود العشوائي ======================
+# تصميم احترافي مع دعم الـ RTL الكامل
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
-
-    html, body, [class*="css"] {
-        font-family: 'Tajawal', sans-serif !important;
-        direction: rtl !important;
-        text-align: right !important;
-        unicode-bidi: plaintext !important;
-    }
-
-    .stApp {
-        background-color: #f8fafc;
-        color: #0f172a;
-    }
-
-    /* إصلاح الخطوط العشوائية والـ BiDi بشكل أقوى */
-    .stChatMessage, p, div, span, h1, h2, h3, label, input, textarea {
-        direction: rtl !important;
-        text-align: right !important;
-        unicode-bidi: plaintext !important;
-    }
-
-    .stChatMessage {
-        flex-direction: row-reverse !important;
-        border-radius: 20px !important;
-        padding: 14px 18px !important;
-        margin: 12px 0 !important;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-    }
-
-    /* User Message */
-    .stChatMessage.user-message {
-        background-color: #dbeafe !important;
-        border-right: 6px solid #3b82f6;
-    }
-
-    /* Assistant Message */
-    .stChatMessage.assistant-message {
-        background-color: #f1f5f9 !important;
-        border-right: 6px solid #64748b;
-    }
-
-    .stTextInput > div > div > input {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-
-    div.stButton > button {
-        background: linear-gradient(135deg, #22c55e, #4ade80);
-        color: #0f172a;
-        font-weight: 700;
-        border-radius: 16px;
-        height: 52px;
-        border: none;
-    }
-
-    .main-header {
-        font-size: 2.9rem;
-        font-weight: 900;
-        background: linear-gradient(90deg, #1e40af, #3b82f6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@300;500;700&display=swap');
+    * { font-family: 'Noto Sans Arabic', sans-serif; direction: rtl; }
+    .stChatMessage { border-radius: 15px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
+    .stChatFloatingInputContainer { bottom: 20px; }
+    /* تحسين شكل الصور المنبثقة */
+    .stImage img { border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== Groq ======================
-GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or "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"
-client = Groq(api_key=GROQ_API_KEY)
+# الاتصال بقاعدة البيانات (نسخة محسنة)
+def get_db_connection():
+    conn = sqlite3.connect('mustafa_v2.db', check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-# ====================== قاعدة البيانات ======================
 def init_db():
-    conn = sqlite3.connect('chats.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS conversations 
-                 (id INTEGER PRIMARY KEY, title TEXT, timestamp TEXT, messages TEXT)''')
-    conn.commit()
-    conn.close()
+    with get_db_connection() as conn:
+        conn.execute('''CREATE TABLE IF NOT EXISTS chat_history 
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                      role TEXT, content TEXT, timestamp DATETIME)''')
+        conn.commit()
 
 init_db()
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# تهيئة Groq
+client = Groq(api_key=st.secrets.get("GROQ_API_KEY", "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"))
 
-# ====================== Sidebar ======================
+# وظيفة تحسين البرومبت للصور (Prompt Engineering)
+def enhance_image_prompt(user_input):
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "system", "content": "You are a professional stable diffusion prompt engineer. Convert the user request into a high-detail English prompt. Focus on lighting, texture, and 8k resolution. Output only the prompt."} ,
+                      {"role": "user", "content": user_input}]
+        )
+        return response.choices[0].message.content
+    except:
+        return user_input
+
+# --- الواجهة الجانبية ---
 with st.sidebar:
-    st.header("⚙️ التحكم")
-    tool_mode = st.radio("اختر الوضع:", 
-        ["المساعد الذكي", "توليد صور بدون قيود", "البحث والتحليل الفائق", "تحليل الصور"])
-
-    if st.button("🗑️ مسح الدردشة"):
+    st.title("👨‍💻 Mustafa King")
+    st.info("النسخة الاحترافية v2.0")
+    mode = st.selectbox("وضع العمل", ["المساعد المهندس", "توليد الصور الفني", "البحث العميق"])
+    if st.button("🗑️ مسح الذاكرة"):
+        with get_db_connection() as conn:
+            conn.execute("DELETE FROM chat_history")
         st.session_state.messages = []
         st.rerun()
 
-# ====================== العنوان ======================
-st.markdown('<h1 class="main-header">المساعد الذكي 🤖</h1>', unsafe_allow_html=True)
-st.markdown('<p style="text-align:center; color:#475569;">Made with 🔥 by Mustafa King</p>', unsafe_allow_html=True)
+# استرجاع الرسائل من قاعدة البيانات عند بدء التشغيل
+if "messages" not in st.session_state:
+    with get_db_connection() as conn:
+        rows = conn.execute("SELECT role, content FROM chat_history ORDER BY timestamp ASC").fetchall()
+        st.session_state.messages = [{"role": row["role"], "content": row["content"]} for row in rows]
 
-# ====================== المساعد الذكي ======================
-if tool_mode == "المساعد الذكي":
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.write(msg.get("content", ""))
-            if msg.get("image_url"):
-                st.image(msg["image_url"], use_container_width=True)
+# عرض الرسائل السابقة
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-    if prompt := st.chat_input("اكتب رسالتك هنا..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"): st.write(prompt)
+# منطق التعامل مع الإدخال
+if prompt := st.chat_input("كيف يمكنني مساعدتك يا مصطفى؟"):
+    # عرض رسالة المستخدم وحفظها
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    
+    with get_db_connection() as conn:
+        conn.execute("INSERT INTO chat_history (role, content, timestamp) VALUES (?, ?, ?)",
+                     ("user", prompt, datetime.now()))
 
-        with st.chat_message("assistant"):
-            if any(k in prompt.lower() for k in ["ارسم", "صورة", "تخيل", "draw", "generate"]):
-                with st.spinner("🎨 جاري توليد الصورة بدقة أعلى..."):
-                    # تحسين الوصف: ترجمة + تفصيل
-                    clean = re.sub(r'(ارسم|صورة|تخيل|draw|generate image)', '', prompt, flags=re.IGNORECASE).strip()
-                    # إرسال لـ Groq لتحسين الـ prompt قبل التوليد
-                    try:
-                        enhance = client.chat.completions.create(
-                            model="llama-3.3-70b-versatile",
-                            messages=[{"role": "system", "content": "حول الوصف العربي إلى prompt إنجليزي مفصل جداً لتوليد صور واقعية عالية الجودة."},
-                                      {"role": "user", "content": clean}]
-                        )
-                        better_prompt = enhance.choices[0].message.content
-                    except:
-                        better_prompt = clean
-
-                    encoded = requests.utils.quote(better_prompt)
-                    img_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1280&height=1280&safe=false&enhance=true&nologo=true"
-                    st.image(img_url, use_container_width=True)
-                    st.session_state.messages.append({"role": "assistant", "content": "تم توليد الصورة بدقة أعلى", "image_url": img_url})
-            else:
-                with st.spinner("🤖 يفكر..."):
-                    response = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
-                        messages=[{"role": "system", "content": "أنت مساعد مهندس ذكي وصريح جداً."}] + 
-                                 [{"role": m["role"], "content": m.get("content", "")} for m in st.session_state.messages[-15:]],
-                        temperature=0.75
-                    )
-                    answer = response.choices[0].message.content
-                    st.write(answer)
-                    st.session_state.messages.append({"role": "assistant", "content": answer})
-
-# ====================== توليد صور بدون قيود (محسن) ======================
-elif tool_mode == "توليد صور بدون قيود":
-    st.subheader("🎨 توليد صور بدون قيود - دقة عالية")
-    prompt = st.text_area("اكتب الوصف بالتفصيل (عربي أو إنجليزي):", height=180)
-    if st.button("🚀 توليد الصورة"):
-        if prompt.strip():
-            with st.spinner("جاري تحسين الوصف وتوليد الصورة..."):
-                # تحسين الـ prompt
-                try:
-                    enhance = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
-                        messages=[{"role": "system", "content": "حول هذا الوصف إلى prompt إنجليزي مفصل جداً لتوليد صور واقعية عالية الجودة بدون قيود."},
-                                  {"role": "user", "content": prompt}]
-                    )
-                    better = enhance.choices[0].message.content
-                except:
-                    better = prompt
-
-                encoded = requests.utils.quote(better)
-                img_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1280&height=1280&safe=false&enhance=true"
-                st.image(img_url, use_container_width=True)
+    # استجابة البوت
+    with st.chat_message("assistant"):
+        # حالة توليد الصور
+        if any(word in prompt for word in ["ارسم", "صورة", "image", "draw"]):
+            with st.spinner("🎨 نخطط اللوحة الآن..."):
+                enhanced_prompt = enhance_image_prompt(prompt)
+                img_url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(enhanced_prompt)}?width=1024&height=1024&nologo=true&seed={int(datetime.now().timestamp())}"
+                st.image(img_url, caption="تم التوليد بواسطة محرك Mustafa AI")
+                full_response = f"لقد قمت بتوليد صورة بناءً على وصفك المحسن: \n\n `{enhanced_prompt}`"
+                st.markdown(full_response)
+        
+        # حالة الدردشة (Streaming)
         else:
-            st.warning("اكتب وصف الصورة")
-
-# ====================== البحث والتحليل الفائق (ميزة جديدة) ======================
-elif tool_mode == "البحث والتحليل الفائق":
-    st.subheader("🔍 البحث والتحليل الفائق")
-    query = st.text_area("اكتب الموضوع الذي تريد بحثه وتحليله بعمق:", height=120,
-                         placeholder="مثال: أحدث تقنيات الطاقة الشمسية في 2026، أو تحليل سوق السيارات الكهربائية...")
-
-    if st.button("🔎 ابدأ البحث والتحليل"):
-        if query:
-            with st.spinner("جاري جمع المعلومات وتحليلها بعمق..."):
-                response = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[
-                        {"role": "system", "content": "أنت باحث محترف جداً. اجمع معلومات دقيقة، حللها بعمق، قدم اقتراحات عملية، واستخدم بيانات حديثة قدر الإمكان. رد بالعربية الفصحى."},
-                        {"role": "user", "content": f"ابحث و حلل بعمق: {query}"}
-                    ],
-                    temperature=0.7,
-                    max_tokens=3000
-                )
-                answer = response.choices[0].message.content
-                st.write(answer)
-                st.session_state.messages.append({"role": "assistant", "content": answer})
-        else:
-            st.warning("اكتب الموضوع أولاً")
-
-# ====================== تحليل الصور ======================
-else:
-    st.subheader("👁️ تحليل الصور")
-    uploaded = st.file_uploader("ارفع الصورة", type=['png', 'jpg', 'jpeg', 'webp'])
-    if uploaded:
-        image = Image.open(uploaded)
-        st.image(image, use_container_width=True)
-        if st.button("تحليل الصورة"):
-            with st.spinner("جاري التحليل..."):
-                buffered = io.BytesIO()
-                image.save(buffered, format="JPEG")
-                img_base64 = buffered.getvalue()
-                # ... (نفس كود التحليل السابق)
-
-st.caption("Made with 🔥 by Mustafa King")
+            response_placeholder = st.empty()
+            full_response = ""
+            
+            # محرك الـ Streaming للحصول على تجربة احترافية
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "system", "content": "أنت مهندس خبير ومساعد ذكي. إجاباتك دقيقة، تقنية، ومباشرة."}] + 
+                         st.session_state.messages[-10:],
+                stream=True,
+            )
+            
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    full_response += chunk.choices[0].delta.content
+                    response_placeholder.markdown(full_response + "▌")
+            
+            response_placeholder.markdown(full_response)
+            
+        # حفظ استجابة البوت
+        st.session_state.messages.append({"role": "assistant", "content": full_response})
+        with get_db_connection() as conn:
+            conn.execute("INSERT INTO chat_history (role, content, timestamp) VALUES (?, ?, ?)",
+                         ("assistant", full_response, datetime.now()))
