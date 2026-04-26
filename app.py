@@ -24,11 +24,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== تهيئة Groq ======================
+# ====================== Groq Client ======================
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or "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"
-
-if not GROQ_API_KEY or GROQ_API_KEY.startswith("gsk_") and len(GROQ_API_KEY) < 20:
-    st.warning("⚠️ استخدم مفتاح Groq حقيقي من .streamlit/secrets.toml لتجنب المشاكل")
 
 client = Groq(api_key=GROQ_API_KEY)
 
@@ -88,8 +85,7 @@ with st.sidebar:
     
     if st.button("💾 حفظ المحادثة الحالية"):
         if st.session_state.messages:
-            title = st.text_input("عنوان المحادثة", 
-                                value=f"محادثة {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+            title = st.text_input("عنوان المحادثة", value=f"محادثة {datetime.now().strftime('%Y-%m-%d %H:%M')}")
             if st.button("تأكيد الحفظ"):
                 save_conversation(title, st.session_state.messages)
                 st.success("✅ تم حفظ المحادثة")
@@ -100,47 +96,99 @@ with st.sidebar:
         st.session_state.current_conv_id = None
         st.rerun()
 
-# ====================== وضع توليد الصور بدون قيود ======================
+# ====================== توليد الصور بدون قيود ======================
 if tool_mode == "توليد صور بدون قيود":
-    st.header("🎨 توليد صور بدون أي قيود (NSFW + Explicit + أي محتوى)")
-    st.caption("اكتب أي وصف تريده... لا حدود هنا")
+    st.header("🎨 توليد صور بدون أي قيود")
+    prompt = st.text_area("وصف الصورة (اكتب أي شيء بدون خوف):", height=130,
+                         placeholder="فتاة عربية عارية في وضع مثير، تفاصيل واقعية، إضاءة درامية...")
     
-    prompt = st.text_area("وصف الصورة بالتفصيل:", height=120, 
-                         placeholder="فتاة عربية عارية تماماً، جسم مثالي، وضع مثير على سرير فاخر، إضاءة سينمائية، تفاصيل واقعية عالية الدقة...")
-    
-    if st.button("🚀 توليد الصورة الآن"):
+    if st.button("🚀 توليد الصورة"):
         if prompt.strip():
-            with st.spinner("🎨 جاري توليد الصورة بدون أي فلاتر..."):
-                clean_prompt = re.sub(r'(ارسم|صورة|تخيل|draw|generate)', '', prompt).strip()
-                encoded = requests.utils.quote(clean_prompt or "صورة واقعية")
-                img_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&safe=false&enhance=true&nologo=true&seed={int(time.time())}"
-                
+            with st.spinner("جاري التوليد بدون فلاتر..."):
+                clean = re.sub(r'(ارسم|صورة|تخيل)', '', prompt).strip()
+                encoded = requests.utils.quote(clean or "صورة واقعية")
+                img_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&safe=false&enhance=true"
                 st.image(img_url, use_container_width=True)
-                st.success("تم التوليد بدون قيود")
-                
-                st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": f"صورة مولدة: {clean_prompt[:80]}...",
-                    "image_url": img_url
-                })
+                st.session_state.messages.append({"role": "assistant", "content": f"صورة: {clean}", "image_url": img_url})
         else:
-            st.warning("اكتب وصف الصورة أولاً")
+            st.warning("اكتب وصف الصورة")
 
-# ====================== وضع تحليل الصور ======================
+# ====================== تحليل الصور ======================
 elif tool_mode == "تحليل الصور":
-    st.header("👁️ تحليل الصور الهندسية والواقعية")
-    uploaded = st.file_uploader("ارفع صورة (مخطط، قطعة ميكانيكية، صورة واقعية...)", 
-                               type=['png', 'jpg', 'jpeg', 'webp'])
+    st.header("👁️ تحليل الصور")
+    uploaded = st.file_uploader("ارفع صورة", type=['png', 'jpg', 'jpeg'])
     
     if uploaded:
         image = Image.open(uploaded)
-        st.image(image, caption="الصورة المرفوعة", use_container_width=True)
+        st.image(image, use_container_width=True)
         
-        if st.button("🔍 تحليل الصورة بعمق"):
-            with st.spinner("جاري تحليل الصورة..."):
+        if st.button("تحليل الصورة"):
+            with st.spinner("جاري التحليل..."):
                 buffered = io.BytesIO()
                 image.save(buffered, format="JPEG")
-                img_str = buffered.getvalue()
+                img_base64 = buffered.getvalue()
                 
-                try:
-                    response = client
+                response = client.chat.completions.create(
+                    model="llama-3.2-11b-vision-preview",
+                    messages=[{
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "حلل الصورة بعمق بالعربية"},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"}}
+                        ]
+                    }]
+                )
+                answer = response.choices[0].message.content
+                st.write(answer)
+
+# ====================== الأخبار ======================
+elif tool_mode == "الأخبار الموثوقة":
+    st.header("🌍 الأخبار الموثوقة")
+    with st.spinner("جاري جلب الأخبار..."):
+        try:
+            url = "https://newsapi.org/v2/top-headlines?country=ae&category=technology&apiKey=f7b8849b2c3a4d87a4a905a5d7c3b2e5"
+            resp = requests.get(url).json()
+            for art in resp.get("articles", [])[:5]:
+                st.subheader(art.get("title", ""))
+                st.write(art.get("description", ""))
+                st.markdown(f"[رابط]({art.get('url')})")
+                st.markdown("---")
+        except:
+            st.error("فشل جلب الأخبار")
+
+# ====================== المساعد الذكي ======================
+else:
+    st.header("🤖 المساعد الذكي")
+    
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.write(msg.get("content", ""))
+            if "image_url" in msg:
+                st.image(msg["image_url"], use_container_width=True)
+    
+    if prompt := st.chat_input("اكتب رسالتك..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.write(prompt)
+        
+        with st.chat_message("assistant"):
+            if any(word in prompt.lower() for word in ["ارسم", "صورة", "تخيل", "draw"]):
+                with st.spinner("جاري توليد الصورة..."):
+                    clean = re.sub(r'(ارسم|صورة|تخيل)', '', prompt).strip()
+                    encoded = requests.utils.quote(clean or "صورة")
+                    img_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&safe=false"
+                    st.image(img_url, use_container_width=True)
+                    st.session_state.messages.append({"role": "assistant", "content": f"صورة مولدة", "image_url": img_url})
+            else:
+                with st.spinner("يفكر..."):
+                    response = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=[{"role": "system", "content": "أنت مساعد مهندس ذكي."}] + 
+                                 [{"role": m["role"], "content": m.get("content", "")} for m in st.session_state.messages[-10:]],
+                        temperature=0.7
+                    )
+                    answer = response.choices[0].message.content
+                    st.write(answer)
+                    st.session_state.messages.append({"role": "assistant", "content": answer})
+
+st.caption("Made with 🔥 by Mustafa King")
