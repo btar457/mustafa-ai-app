@@ -1,23 +1,5 @@
-# ====================== Mustafa AI App - requirements.txt ======================
-
-streamlit==1.42.0
-groq==0.18.0
-requests==2.32.3
-Pillow==11.1.0
-python-dotenv==1.0.1
-
-# لتوليد الصور والـ uncensored (اختياري لكن موصى به)
-httpx==0.28.1
-
-# لقاعدة البيانات وحفظ المحادثات
-sqlite3  # مدمجة في Python، لا تحتاج تثبيت
-
-# اختياري - للتحسينات المستقبلية
-pandas==2.2.3
-numpy==2.2.2
-pytz==2025.1
-
-# للـ deployment على Streamlit Cloud أو Railway أو Render
-# إذا حابب تضيف صوت أو ميزات متقدمة لاحقاً:
-# openai==1.61.0
-# pydub==0.25.1
+streamlit
+groq
+requests
+Pillow
+pandas
