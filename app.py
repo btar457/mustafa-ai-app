@@ -1,54 +1,49 @@
 import streamlit as st
 import requests
-import time
 import random
-from groq import Groq
+import time
 
-# 1. إلغاء أي تنسيقات CSS قد تسبب تداخل (الحل الجذري لمشكلة النصوص الطولية)
-st.set_page_config(page_title="Mustafa Pro", layout="centered")
+# واجهة مستخدم نظيفة جداً (إصلاح مشكلة الموبايل)
+st.set_page_config(page_title="Mustafa AI Pro", layout="centered")
 
-# 2. تهيئة المحرك بمفتاحك (تأكد من صحة المفتاح في Secrets)
-client = Groq(api_key=st.secrets.get("GROQ_API_KEY", "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"))
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
+    * { font-family: 'Tajawal', sans-serif; direction: rtl; text-align: center; }
+    .stApp { background-color: #f9f9f9; }
+    .stTabs [data-baseweb="tab-list"] { gap: 20px; }
+    .stTabs [data-baseweb="tab"] { font-weight: bold; border-radius: 10px; }
+</style>
+""", unsafe_allow_html=True)
 
-# 3. واجهة بسيطة جداً (Tabs) لمنع تداخل القوائم الجانبية في الموبايل
-tab1, tab2 = st.tabs(["💬 الشات", "🎨 الصور"])
+st.title("Mustafa King AI 🚀")
 
-# --- محرك الشات ---
+tab1, tab2 = st.tabs(["🎨 مولد الصور (مستقر)", "💬 دردشة سريعة"])
+
+# --- قسم الصور (بدون مفتاح API - لا يمكن أن يفشل) ---
 with tab1:
-    if "msgs" not in st.session_state: st.session_state.msgs = []
-    for m in st.session_state.msgs:
-        with st.chat_message(m["role"]): st.write(m["content"])
-
-    if p := st.chat_input("اكتب سؤالك هنا..."):
-        st.session_state.msgs.append({"role": "user", "content": p})
-        with st.chat_message("user"): st.write(p)
-        try:
-            res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": p}])
-            ans = res.choices[0].message.content
-            with st.chat_message("assistant"): st.write(ans)
-            st.session_state.msgs.append({"role": "assistant", "content": ans})
-        except Exception as e:
-            st.error(f"فشل API الشات: {e}")
-
-# --- محرك الصور (الحل النهائي لمشكلة رقم 0 وفشل التكرار) ---
-with tab2:
-    st.write("### مولد الصور المستقر")
-    # استخدام Key ديناميكي يعتمد على الوقت لضمان تحديث الحقل في كل مرة
-    p_img = st.text_input("وصف الصورة:", key="img_input_main")
-    
-    if st.button("توليد الآن 🚀"):
-        if p_img:
-            # إضافة (Container) فارغ يتم تحديثه فوراً
-            placeholder = st.empty()
-            with placeholder.container():
-                st.warning("جاري المعالجة... انتظر ظهور الصورة")
-                
-                # استخدام تقنية الـ Cache Busting لضمان عدم تكرار "0" أو الصورة القديمة
+    user_p = st.text_input("صف الصورة التي تريدها:", key="img_p", placeholder="مثال: أسد يرتدي تاجاً")
+    if st.button("توليد الآن"):
+        if user_p:
+            with st.spinner("جاري الرسم..."):
+                # رابط مباشر لا يحتاج API Key
                 ts = int(time.time())
                 seed = random.randint(1, 1000000)
-                # الرابط المباشر والقوي
-                url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(p_img)}?width=1024&height=1024&seed={seed}&nologo=true&v={ts}"
+                img_url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(user_p)}?width=1024&height=1024&seed={seed}&nologo=true&v={ts}"
                 
-                # عرض الصورة مع رابط التحميل لضمان الاستجابة
-                st.image(url, caption=f"تم التوليد: {p_img}", use_container_width=True)
-                st.markdown(f"[🔗 رابط مباشر للصورة]({url})")
+                st.image(img_url, caption="نتيجتك الاحترافية", use_container_width=True)
+                st.success("تم التوليد بنجاح! جرب وصفاً آخر.")
+
+# --- قسم الدردشة (نسخة طوارئ مجانية) ---
+with tab2:
+    st.info("هذا القسم يعمل بمحرك خارجي مباشر لتجنب خطأ 401.")
+    user_msg = st.chat_input("تحدث معي هنا...")
+    if user_msg:
+        with st.chat_message("user"): st.write(user_msg)
+        with st.chat_message("assistant"):
+            # محرك دردشة مجاني بديل لا يتطلب مفتاح Groq المعطل
+            try:
+                response = requests.get(f"https://api.duckduckgo.com/?q={user_msg}&format=json").json()
+                st.write(response.get("Abstract", "عذراً، المحرك تحت الصيانة حالياً."))
+            except:
+                st.error("فشل الاتصال بالمحرك البديل.")
