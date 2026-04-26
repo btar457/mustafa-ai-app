@@ -11,7 +11,7 @@ import random
 from PIL import Image
 
 # ====================== إعدادات الصفحة والتنسيق (UI/UX) ======================
-st.set_page_config(page_title="Mustafa AI Pro", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="Mustafa AI Pro", page_icon="", layout="wide")
 
 # CSS متطور لإصلاح الخطوط العشوائية وضمان تجربة RTL احترافية
 st.markdown("""
@@ -97,7 +97,8 @@ def enhance_image_prompt(user_input):
                       {"role": "user", "content": user_input}]
         )
         return response.choices[0].message.content.strip()
-    except:
+    except Exception as e:
+        st.error(f"Error: {e}")
         return user_input
 
 def save_msg(role, content, mode):
@@ -107,19 +108,19 @@ def save_msg(role, content, mode):
 
 # ====================== القائمة الجانبية ======================
 with st.sidebar:
-    st.markdown("<h2 style='text-align:center;'>Mustafa AI ⚙️</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align:center;'>Mustafa AI </h2>", unsafe_allow_html=True)
     tool_mode = st.radio("الوضع المخصص:", 
-        ["💬 المساعد الذكي", "🎨 توليد صور احترافية", "🔍 البحث الفائق", "👁️ تحليل الرؤية"])
+        [" المساعد الذكي", " توليد صور احترافية", " البحث الفائق", " تحليل الرؤية"])
 
     st.markdown("---")
-    if st.button("🗑️ مسح الذاكرة"):
+    if st.button(" مسح الذاكرة"):
         st.session_state.messages = []
         st.session_state.img_url = None
         st.rerun()
 
 # ====================== التنفيذ حسب الوضع ======================
 def handle_tool_mode(tool_mode):
-    if tool_mode == "💬 المساعد الذكي":
+    if tool_mode == " المساعد الذكي":
         # عرض التاريخ
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
@@ -140,21 +141,21 @@ def handle_tool_mode(tool_mode):
                 for chunk in stream:
                     if chunk.choices[0].delta.content:
                         full_res += chunk.choices[0].delta.content
-                        res_area.markdown(full_res + "▌")
+                        res_area.markdown(full_res + " ")
                 res_area.markdown(full_res)
 
             st.session_state.messages.append({"role": "assistant", "content": full_res})
             save_msg("assistant", full_res, "Chat")
 
-    elif tool_mode == "🎨 توليد صور احترافية":
+    elif tool_mode == " توليد صور احترافية":
         st.info("اكتب وصفك وسأقوم بتحويله لبرومبت احترافي وتوليد الصورة فوراً.")
 
         with st.form(key="img_form", clear_on_submit=False):
             user_prompt = st.text_area("وصف الصورة:", placeholder="مثال: مدينة مستقبلية في المريخ...")
-            generate_btn = st.form_submit_button("🚀 توليد الآن")
+            generate_btn = st.form_submit_button(" توليد الآن")
 
         if generate_btn and user_prompt:
-            with st.spinner("🎨 جاري العمل على اللوحة..."):
+            with st.spinner(" جاري العمل على اللوحة..."):
                 enhanced = enhance_image_prompt(user_prompt)
                 # إضافة معايير عشوائية (Cache Busting) لضمان نجاح التوليد المتكرر
                 seed = random.randint(1, 999999)
@@ -169,12 +170,12 @@ def handle_tool_mode(tool_mode):
         if st.session_state.img_url:
             st.markdown(f"**النتيجة لـ:** {st.session_state.img_desc}")
             st.image(st.session_state.img_url, use_container_width=True)
-            st.markdown(f"🔍 **البورميت المستخدم:** `{enhance_image_prompt(st.session_state.img_desc)}`")
+            st.markdown(f" **البورميت المستخدم:** `{enhance_image_prompt(st.session_state.img_desc)}`")
 
-    elif tool_mode == "🔍 البحث الفائق":
+    elif tool_mode == " البحث الفائق":
         query = st.text_input("عن ماذا نبحث اليوم؟")
         if st.button("بدء التحليل"):
-            with st.spinner("جاري التحليل العميق..."):
+            with st.spinner(" جاري التحليل العميق..."):
                 res = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[{"role": "system", "content": "أنت باحث أكاديمي."}, {"role": "user", "content": query}]
@@ -191,4 +192,4 @@ st.markdown(f'<h1 class="main-header">{tool_mode}</h1>', unsafe_allow_html=True)
 handle_tool_mode(tool_mode)
 
 st.markdown("---")
-st.caption("Mustafa King AI | vFinal Pro 🚀")
+st.caption("Mustafa King AI | vFinal Pro ")
