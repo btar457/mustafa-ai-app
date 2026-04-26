@@ -6,41 +6,71 @@ import json
 from datetime import datetime
 import re
 import io
+import time
+import random
 from PIL import Image
 
-# ====================== إعدادات الصفحة والتصميم (RTL & Deep Customization) ======================
-st.set_page_config(page_title="Mustafa AI Pro", page_icon="🚀", layout="wide")
+# ====================== إعدادات الصفحة والتنسيق (UI/UX) ======================
+st.set_page_config(page_title="Mustafa AI Pro", page_icon="🤖", layout="wide")
 
+# CSS متطور لإصلاح الخطوط العشوائية وضمان تجربة RTL احترافية
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@300;500;700&display=swap');
-    * { font-family: 'Noto Sans Arabic', sans-serif; direction: rtl !important; text-align: right !important; }
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
     
-    .stApp { background-color: #f8fafc; }
-    
-    /* تحسين شكل الشات */
-    .stChatMessage { border-radius: 15px; margin-bottom: 15px; border: 1px solid #e2e8f0; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-    .stChatMessage.user { background-color: #e0f2fe; border-right: 5px solid #3b82f6; }
-    .stChatMessage.assistant { background-color: white; border-right: 5px solid #10b981; }
+    html, body, [class*="css"] {
+        font-family: 'Tajawal', sans-serif !important;
+        direction: rtl !important;
+        text-align: right !important;
+    }
 
-    /* تحسين العناوين والأزرار */
-    .main-header { font-size: 3rem; font-weight: 700; color: #1e3a8a; text-align: center !important; margin-bottom: 20px; }
-    div.stButton > button { width: 100%; border-radius: 10px; background-color: #1e3a8a; color: white; transition: 0.3s; }
-    div.stButton > button:hover { background-color: #3b82f6; border-color: #3b82f6; }
+    /* إزالة الخطوط العمودية العشوائية التي قد تظهر في الحاويات */
+    div[data-testid="stChatMessage"], .stMarkdown, .stVerticalBlock {
+        border-right: none !important;
+        border-left: none !important;
+    }
+
+    .stApp { background-color: #f8fafc; }
+
+    /* تحسين شكل فقاعات الدردشة */
+    .stChatMessage {
+        border-radius: 15px !important;
+        margin-bottom: 12px !important;
+        padding: 15px !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+        border: 1px solid #edf2f7 !important;
+    }
     
-    .stImage img { border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.15); }
-    .stTextArea textarea, .stTextInput input { border-radius: 10px; }
+    .stChatMessage.user { background-color: #eff6ff !important; border-left: 4px solid #3b82f6 !important; }
+    .stChatMessage.assistant { background-color: #ffffff !important; border-left: 4px solid #10b981 !important; }
+
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: 900;
+        color: #1e3a8a;
+        text-align: center !important;
+        margin-bottom: 30px;
+    }
+
+    /* تحسين الأزرار */
+    div.stButton > button {
+        width: 100%;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+        color: white;
+        font-weight: 700;
+        border: none;
+        padding: 10px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== تهيئة الـ API وقاعدة البيانات ======================
-# تأمين المفتاح
+# ====================== تهيئة المحركات والقواعد ======================
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
 client = Groq(api_key=GROQ_API_KEY)
 
-# قاعدة البيانات (sqlite3) - مفعلة لحفظ الدردشة فعلياً
 def get_db_connection():
-    conn = sqlite3.connect('mustafa_v3.db', check_same_thread=False)
+    conn = sqlite3.connect('mustafa_vfinal.db', check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -53,192 +83,115 @@ def init_db():
 
 init_db()
 
-# تهيئة الـ Session State
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# تهيئة مخازن الجلسة
+if "messages" not in st.session_state: st.session_state.messages = []
+if "img_url" not in st.session_state: st.session_state.img_url = None
+if "img_desc" not in st.session_state: st.session_state.img_desc = None
 
-# ====================== وظائف العمق الهندسي ======================
+# ====================== الوظائف الذكية ======================
 
-# 1. تحسين البرومبت للصور (Deep Prompt Engineering)
 def enhance_image_prompt(user_input):
-    """تحويل الوصف السريع إلى برومبت احترافي لنموذج توليد الصور"""
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[{"role": "system", "content": "You are a professional image generation prompt engineer for Stable Diffusion. Convert user request to detailed, descriptive English prompt. Include style, lighting, resolution (8k, hyperrealistic). Only output the final prompt."} ,
+            messages=[{"role": "system", "content": "Convert this Arabic/English prompt into a hyper-detailed English image generation prompt. Focus on 8k, cinematic lighting, and realistic textures. Output only the prompt."},
                       {"role": "user", "content": user_input}]
         )
         return response.choices[0].message.content.strip()
     except:
-        # في حال فشل الـ AI، قم بتنظيف النص فقط
-        return re.sub(r'(ارسم|صورة|تخيل|generate|image)', '', user_input).strip()
+        return user_input
 
-# 2. حفظ الرسائل إلى قاعدة البيانات
-def save_message(role, content, tool_mode):
+def save_msg(role, content, mode):
     with get_db_connection() as conn:
         conn.execute("INSERT INTO chat_history (role, content, timestamp, tool_mode) VALUES (?, ?, ?, ?)",
-                     (role, content, datetime.now(), tool_mode))
+                     (role, content, datetime.now(), mode))
 
-# 3. محرك الاستجابة الحية (Streaming Engine)
-def stream_groq_response(messages):
-    response_placeholder = st.empty()
-    full_response = ""
-    
-    stream = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "system", "content": "أنت مساعد مهندس ذكي، صريح جداً، ومحترف."}] + messages,
-        stream=True,
-        temperature=0.7
-    )
-    
-    for chunk in stream:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-            # إضافة رمز "▌" لإظهار الكتابة الحية
-            response_placeholder.markdown(full_response + "▌", unsafe_allow_html=True)
-    
-    response_placeholder.markdown(full_response, unsafe_allow_html=True)
-    return full_response
-
-
-# ====================== الشريط الجانبي (Sidebar) ======================
+# ====================== القائمة الجانبية ======================
 with st.sidebar:
-    st.markdown("<h2 style='text-align:center;'>⚙️ لوحة التحكم</h2>", unsafe_allow_html=True)
-    st.image("https://cdn-icons-png.flaticon.com/512/2103/2103811.png", width=100)
-    
-    # إعادة الأدوات المخصصة بدقة
-    tool_mode = st.radio("اختر الوضع المخصص:", 
-        ["💬 المساعد الذكي (الشات)", 
-         "🎨 أداة توليد الصور الاحترافية", 
-         "🔍 البحث والتحليل العميق", 
-         "👁️ تحليل الصور VLM"])
+    st.markdown("<h2 style='text-align:center;'>Mustafa AI ⚙️</h2>", unsafe_allow_html=True)
+    tool_mode = st.radio("الوضع المخصص:", 
+        ["💬 المساعد الذكي", "🎨 توليد صور احترافية", "🔍 البحث الفائق", "👁️ تحليل الرؤية"])
     
     st.markdown("---")
-    if st.button("🗑️ مسح ذاكرة الشات بالكامل"):
-        with get_db_connection() as conn:
-            conn.execute("DELETE FROM chat_history")
+    if st.button("🗑️ مسح الذاكرة"):
         st.session_state.messages = []
+        st.session_state.img_url = None
         st.rerun()
 
-# ====================== العنوان الرئيسي ======================
-st.markdown(f'<h1 class="main-header">{tool_mode.split(" ", 1)[1]} 🚀</h1>', unsafe_allow_html=True)
+# ====================== التنفيذ حسب الوضع ======================
+st.markdown(f'<h1 class="main-header">{tool_mode}</h1>', unsafe_allow_html=True)
 
-# ====================== منطق الأدوات (Logic) ======================
-
-# --- الوضع 1: المساعد الذكي (محسن بالـ Streaming والذاكرة) ---
-if tool_mode == "💬 المساعد الذكي (الشات)":
-    
-    # تحميل الرسائل الخاصة بهذا الوضع فقط من قاعدة البيانات
-    if not st.session_state.messages:
-        with get_db_connection() as conn:
-            rows = conn.execute("SELECT role, content FROM chat_history WHERE tool_mode = ? ORDER BY timestamp ASC", 
-                                 ("Chat",)).fetchall()
-            st.session_state.messages = [{"role": row["role"], "content": row["content"]} for row in rows]
-
+# --- 1. المساعد الذكي ---
+if tool_mode == "💬 المساعد الذكي":
     # عرض التاريخ
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"], unsafe_allow_html=True)
+    for m in st.session_state.messages:
+        with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    # إدخال المستخدم
-    if prompt := st.chat_input("اكتب سؤالك الهندسي أو التقني هنا..."):
+    if prompt := st.chat_input("تحدث معي..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        save_message("user", prompt, "Chat")
+        with st.chat_message("user"): st.markdown(prompt)
+        save_msg("user", prompt, "Chat")
 
-        # الاستجابة الاحترافية (Streaming)
         with st.chat_message("assistant"):
-            # نرسل آخر 10 رسائل للسياق لضمان السرعة (Flash optimization)
-            context = st.session_state.messages[-10:]
-            final_answer = stream_groq_response(context)
-        
-        st.session_state.messages.append({"role": "assistant", "content": final_answer})
-        save_message("assistant", final_answer, "Chat")
-
-
-# --- الوضع 2: أداة توليد الصور الاحترافية (تمت إعادتها وتحسينها) ---
-elif tool_mode == "🎨 أداة توليد الصور الاحترافية":
-    st.subheader("تخيل، صف، ونحن سنولد الصورة بدقة عالية.")
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        img_prompt = st.text_area("أدخل وصف الصورة بالتفصيل (عربي أو إنجليزي):", height=150, placeholder="قطة سيبيرية بعيون زرقاء تجلس على كرسي عرش بأسلوب سينمائي...")
-        aspect_ratio = st.selectbox("أبعاد الصورة:", ["1:1 (مربع)", "16:9 (سينمائي)", "9:16 (موبايل)"])
-    
-    with col2:
-        st.info("نحن نستخدم Llama-3 لتحسين البرومبت قبل إرساله لمحرك التوليد لضمان أعلى جودة.")
-        generate_btn = st.button("🚀 توليد اللوحة الفنية")
-
-    if generate_btn and img_prompt:
-        with st.spinner("🎨 جاري تحليل الوصف، تحسين البرومبت، ورسم الصورة..."):
-            # 1. العمق التقني: تحسين البرومبت
-            enhanced = enhance_image_prompt(img_prompt)
-            st.markdown(f"**البرومبت المحسن技术:** `{enhanced}`")
+            res_area = st.empty()
+            full_res = ""
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "system", "content": "أنت مهندس ذكي ومساعد محترف."}] + st.session_state.messages[-10:],
+                stream=True
+            )
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    full_res += chunk.choices[0].delta.content
+                    res_area.markdown(full_res + "▌")
+            res_area.markdown(full_res)
             
-            # 2. تحديد الأبعاد
-            width, height = 1024, 1024
-            if aspect_ratio == "16:9 (سينمائي)": width, height = 1280, 720
-            elif aspect_ratio == "9:16 (موبايل)": width, height = 720, 1280
-            
-            # 3. التوليد (مع seed متغير لعدم التكرار)
-            seed = int(datetime.now().timestamp())
-            img_url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(enhanced)}?width={width}&height={height}&nologo=true&private=true&seed={seed}"
-            
-            # 4. العرض (UX محترفة)
-            st.image(img_url, caption=f"تم التوليد بناءً على: {img_prompt}", use_container_width=True)
-            
-            # حفظ العملية في قاعدة البيانات (اختياري، كـ Content)
-            save_message("assistant", f"توليد صورة: {img_prompt} | البرومبت المحسن: {enhanced} | الرابط: {img_url}", "ImageGen")
-            st.success("تم توليد الصورة بنجاح!")
+        st.session_state.messages.append({"role": "assistant", "content": full_res})
+        save_msg("assistant", full_res, "Chat")
 
-
-# --- الوضع 3: البحث والتحليل العميق (Streaming Enabled) ---
-elif tool_mode == "🔍 البحث والتحليل العميق":
-    st.subheader("حلل الأسواق، التقنيات، أو البيانات بأسلوب باحث محترف.")
-    query = st.text_area("أدخل موضوع البحث:", placeholder="تحليل مستقبلي للطاقة المتجددة في السعودية 2030...")
+# --- 2. توليد الصور (تم إصلاح مشكلة التكرار والخطوط) ---
+elif tool_mode == "🎨 توليد صور احترافية":
+    st.info("اكتب وصفك وسأقوم بتحويله لبرومبت احترافي وتوليد الصورة فوراً.")
     
-    if st.button("🔎 ابدأ التحليل العميق"):
-        if query:
-            with st.chat_message("assistant"):
-                # نستخدم نفس محرك الـ Streaming لكن بـ System Prompt مختلف
-                system_prompt = "أنت باحث تقني واقتصادي محترف. قدم تحليلاً عميقاً، مدعماً بالأرقام (إذا توفرت سياقياً)، مهيكلاً، وبالعربية الفصحى."
-                response_placeholder = st.empty()
-                full_response = ""
-                
-                stream = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": query}],
-                    stream=True,
-                    temperature=0.6 # أقل قليلاً لمزيد من الدقة
-                )
-                
-                for chunk in stream:
-                    if chunk.choices[0].delta.content:
-                        full_response += chunk.choices[0].delta.content
-                        response_placeholder.markdown(full_response + "▌", unsafe_allow_html=True)
-                response_placeholder.markdown(full_response, unsafe_allow_html=True)
-                
-                save_message("user", query, "Analysis")
-                save_message("assistant", full_response, "Analysis")
-        else:
-            st.warning("يرجى كتابة موضوع البحث.")
+    with st.form(key="img_form", clear_on_submit=False):
+        user_prompt = st.text_area("وصف الصورة:", placeholder="مثال: مدينة مستقبلية في المريخ...")
+        generate_btn = st.form_submit_button("🚀 توليد الآن")
 
-# --- الوضع 4: تحليل الصور (هيكل جاهز) ---
+    if generate_btn and user_prompt:
+        with st.spinner("🎨 جاري العمل على اللوحة..."):
+            enhanced = enhance_image_prompt(user_prompt)
+            # إضافة معايير عشوائية (Cache Busting) لضمان نجاح التوليد المتكرر
+            seed = random.randint(1, 999999)
+            t = int(time.time())
+            
+            img_url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(enhanced)}?width=1024&height=1024&nologo=true&seed={seed}&t={t}"
+            
+            st.session_state.img_url = img_url
+            st.session_state.img_desc = user_prompt
+            save_msg("system", f"Image: {user_prompt}", "ImageGen")
+
+    if st.session_state.img_url:
+        st.markdown(f"**النتيجة لـ:** {st.session_state.img_desc}")
+        st.image(st.session_state.img_url, use_container_width=True)
+        st.markdown(f"🔍 **البورميت المستخدم:** `{enhance_image_prompt(st.session_state.img_desc)}`")
+
+# --- 3. البحث الفائق ---
+elif tool_mode == "🔍 البحث الفائق":
+    query = st.text_input("عن ماذا نبحث اليوم؟")
+    if st.button("بدء التحليل"):
+        with st.spinner("جاري التحليل العميق..."):
+            res = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "system", "content": "أنت باحث أكاديمي."}, {"role": "user", "content": query}]
+            )
+            st.write(res.choices[0].message.content)
+
+# --- 4. تحليل الرؤية ---
 else:
-    st.subheader("رفع وتحليل الصور باستخدام نماذج الرؤية الحاسوبية (VLM)")
-    uploaded_file = st.file_uploader("اختر صورة...", type=["jpg", "jpeg", "png"])
-    
-    if uploaded_file is not None:
-        image = Image.open(uploaded_file)
-        st.image(image, caption='الصورة المرفوعة', use_container_width=True)
-        
-        analysis_prompt = st.text_input("ماذا تريد أن تعرف عن هذه الصورة؟", placeholder="صف هذه الصورة بالتفصيل...")
-        
-        if st.button("👁️ تحليل الصورة"):
-            st.warning("ميزة الـ Vision تحتاج إلى مفتاح API يدعم نماذج Llama-3-Vision (غير مفعل حالياً في هذا الهيكل). تم إعداد الهيكل البرمجي لك.")
-            # هنا يتم وضع كود تحويل الصورة لـ base64 وإرسالها لـ Groq Vision API
+    uploaded = st.file_uploader("ارفع صورة للتحليل", type=["png", "jpg", "jpeg"])
+    if uploaded:
+        st.image(uploaded, caption="تم رفع الصورة")
+        st.warning("يتطلب هذا النمط إعداد Groq Vision API.")
 
 st.markdown("---")
-st.caption(f"Made with 🔥 by Mustafa King | v3.0 Pro Development | Time: {datetime.now().strftime('%H:%M')}")
+st.caption("Mustafa King AI | vFinal Pro 🚀")
